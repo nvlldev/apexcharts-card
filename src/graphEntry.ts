@@ -506,7 +506,7 @@ export default class GraphEntry {
   private _dataBucketer(history: EntityEntryCache, timeRange: DateRange): HistoryBuckets {
     const ranges = Array.from(timeRange.reverseBy('milliseconds', { step: this._groupByDurationMs })).reverse();
     // const res: EntityCachePoints[] = [[]];
-    const buckets: HistoryBuckets = [];
+    let buckets: HistoryBuckets = [];
     ranges.forEach((range, index) => {
       buckets[index] = { timestamp: range.valueOf(), data: [] };
     });
@@ -570,38 +570,53 @@ export default class GraphEntry {
     
     // Handle series with statistics specially for stacked columns
     if (isStackedColumn && this._config.statistics) {
-      // For statistics with stacked columns, we need to ensure consistent data points across all series
-      // All data points must be present in every series for proper stacking
+      // For stacked column charts with statistics, we need special handling to ensure proper stacking
       
-      // First, find all timestamps from the current data
-      const allTimestamps = new Set<number>();
-      buckets.forEach(bucket => {
-        if (bucket.data.length > 0) {
-          allTimestamps.add(bucket.data[0][0]);
-        } else if (bucket.timestamp <= now) {
-          // Also include the bucket timestamp itself if it's in the past or present
-          allTimestamps.add(bucket.timestamp);
+      // Fill in all empty buckets with zeros
+      for (let i = 0; i < buckets.length; i++) {
+        if (buckets[i].data.length === 0 && buckets[i].timestamp <= now) {
+          buckets[i].data = [[buckets[i].timestamp, 0]];
         }
-      });
+      }
       
-      // Ensure every bucket has a data point
-      buckets.forEach(bucket => {
-        if (bucket.data.length === 0 && bucket.timestamp <= now) {
-          bucket.data[0] = [bucket.timestamp, 0];
-        }
-      });
+      // Special handling for statistics mode with stacked columns:
+      // We need to ensure all timestamps are normalized to have the exact same timestamps
+      // otherwise they won't stack properly
       
-      // Sort buckets by timestamp to ensure correct z-index rendering
-      buckets.sort((a, b) => {
-        // First sort by timestamp
-        const timestampComparison = a.timestamp - b.timestamp;
-        if (timestampComparison !== 0) return timestampComparison;
+      // If this series has a missing data point but other series might have it,
+      // we need to explicitly add data points with value 0 for all possible timestamps
+      // This is crucial for proper stacking of columns
+      if (buckets.length > 0) {
+        // Collect a sorted list of all timestamps that should be considered
+        const allBucketTimestamps: number[] = buckets
+          .filter(bucket => bucket.data.length > 0)
+          .map(bucket => bucket.data[0][0])
+          .sort((a, b) => a - b);
         
-        // If timestamps are equal, sort by value (ensures consistent z-index ordering)
-        const aValue = a.data.length > 0 ? (a.data[0][1] ?? 0) : 0;
-        const bValue = b.data.length > 0 ? (b.data[0][1] ?? 0) : 0;
-        return aValue - bValue;
-      });
+        // Ensure we have exactly these timestamps in our data
+        // This is critical for statistics mode where different series might have different timestamp sets
+        if (allBucketTimestamps.length > 0) {
+          // We need to make a copy because we'll be modifying the buckets array
+          const modifiedBuckets: HistoryBuckets = [];
+          
+          // Add a data point (with value 0) for each timestamp
+          for (const timestamp of allBucketTimestamps) {
+            const existingBucket = buckets.find(b => b.data.length > 0 && b.data[0][0] === timestamp);
+            if (existingBucket) {
+              modifiedBuckets.push(existingBucket);
+            } else {
+              // If we don't already have this timestamp, add a zero-value data point
+              modifiedBuckets.push({
+                timestamp: timestamp,
+                data: [[timestamp, 0]]
+              });
+            }
+          }
+          
+          // Replace the original buckets with our normalized version
+          buckets = modifiedBuckets;
+        }
+      }
     }
     
     // Remove nulls at the end
