@@ -1,3 +1,10 @@
+### [2.1.3](https://github.com/RomRider/apexcharts-card/compare/v2.1.2...v2.1.3) (2024-07-12)
+
+
+### Bug Fixes
+
+* **column:** fix stacked column charts when data isn't present for the entire range, particularly with statistics data
+
 ### [2.1.2](https://github.com/RomRider/apexcharts-card/compare/v2.1.1...v2.1.2) (2024-07-10)
 
 

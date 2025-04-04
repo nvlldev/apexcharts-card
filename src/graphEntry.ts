@@ -398,8 +398,15 @@ export default class GraphEntry {
     }
     let stateParsed: number | null = parseFloat(currentState as string);
     stateParsed = !Number.isNaN(stateParsed) ? stateParsed : null;
+    
+    const isStackedColumn = 
+      this._config.type === 'column' && 
+      this._config.stack_group !== undefined && 
+      this._config.stack_group !== '';
+    
     if (stateParsed === null) {
-      if (this._config.fill_raw === 'zero') {
+      if (this._config.fill_raw === 'zero' || (isStackedColumn && this._config.statistics)) {
+        // For stacked column charts, especially with statistics, use 0 for null values
         stateParsed = 0;
       } else if (this._config.fill_raw === 'last') {
         stateParsed = lastNonNull;
@@ -506,6 +513,13 @@ export default class GraphEntry {
     });
     let lastNonNullBucketValue: number | null = null;
     const now = new Date().getTime();
+    
+    // Check if this is a stacked column chart that needs zero filling for proper stacking
+    const isStackedColumn = 
+      this._config.type === 'column' && 
+      this._config.stack_group !== undefined && 
+      this._config.stack_group !== '';
+    
     buckets.forEach((bucket, index) => {
       if (bucket.data.length === 0) {
         if (this._config.group_by.fill === 'last' && (bucket.timestamp <= now || this._config.data_generator)) {
@@ -513,7 +527,13 @@ export default class GraphEntry {
         } else if (this._config.group_by.fill === 'zero' && (bucket.timestamp <= now || this._config.data_generator)) {
           bucket.data[0] = [bucket.timestamp, 0];
         } else if (this._config.group_by.fill === 'null') {
-          bucket.data[0] = [bucket.timestamp, null];
+          // For column charts with stacking, ensure we always have a data point with value 0
+          // This ensures column charts stack properly even with missing data
+          if (isStackedColumn) {
+            bucket.data[0] = [bucket.timestamp, 0];
+          } else {
+            bucket.data[0] = [bucket.timestamp, null];
+          }
         }
       } else {
         lastNonNullBucketValue = bucket.data.slice(-1)[0][1];
@@ -537,6 +557,21 @@ export default class GraphEntry {
     });
     buckets.shift();
     buckets.pop();
+    
+    // Handle series with statistics specially for stacked columns
+    if (isStackedColumn && this._config.statistics) {
+      // For statistics with stacked columns, we need to ensure consistent data points
+      // When using statistics, all timestamps should be present in the output
+      const existingTimestamps = new Set(buckets.filter(b => b.data.length > 0).map(b => b.data[0][0]));
+      
+      // Fill missing timestamps with zeros for proper stacking
+      buckets.forEach(bucket => {
+        if (bucket.data.length === 0 && bucket.timestamp <= now) {
+          bucket.data[0] = [bucket.timestamp, 0];
+        }
+      });
+    }
+    
     // Remove nulls at the end
     while (
       buckets.length > 0 &&
