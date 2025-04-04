@@ -299,6 +299,16 @@ export default class GraphEntry {
               displayDate = new Date(item.end);
             }
 
+            // For stacked column charts, ensure null values become 0 to ensure proper stacking
+            const isStackedColumn = 
+              this._config.type === 'column' && 
+              this._config.stack_group !== undefined && 
+              this._config.stack_group !== '';
+              
+            if (isStackedColumn && stateParsed === null) {
+              stateParsed = 0;
+            }
+
             return [displayDate.getTime(), !Number.isNaN(stateParsed) ? stateParsed : null];
           });
         }
@@ -560,15 +570,37 @@ export default class GraphEntry {
     
     // Handle series with statistics specially for stacked columns
     if (isStackedColumn && this._config.statistics) {
-      // For statistics with stacked columns, we need to ensure consistent data points
-      // When using statistics, all timestamps should be present in the output
-      const existingTimestamps = new Set(buckets.filter(b => b.data.length > 0).map(b => b.data[0][0]));
+      // For statistics with stacked columns, we need to ensure consistent data points across all series
+      // All data points must be present in every series for proper stacking
       
-      // Fill missing timestamps with zeros for proper stacking
+      // First, find all timestamps from the current data
+      const allTimestamps = new Set<number>();
+      buckets.forEach(bucket => {
+        if (bucket.data.length > 0) {
+          allTimestamps.add(bucket.data[0][0]);
+        } else if (bucket.timestamp <= now) {
+          // Also include the bucket timestamp itself if it's in the past or present
+          allTimestamps.add(bucket.timestamp);
+        }
+      });
+      
+      // Ensure every bucket has a data point
       buckets.forEach(bucket => {
         if (bucket.data.length === 0 && bucket.timestamp <= now) {
           bucket.data[0] = [bucket.timestamp, 0];
         }
+      });
+      
+      // Sort buckets by timestamp to ensure correct z-index rendering
+      buckets.sort((a, b) => {
+        // First sort by timestamp
+        const timestampComparison = a.timestamp - b.timestamp;
+        if (timestampComparison !== 0) return timestampComparison;
+        
+        // If timestamps are equal, sort by value (ensures consistent z-index ordering)
+        const aValue = a.data.length > 0 ? (a.data[0][1] ?? 0) : 0;
+        const bValue = b.data.length > 0 ? (b.data[0][1] ?? 0) : 0;
+        return aValue - bValue;
       });
     }
     
