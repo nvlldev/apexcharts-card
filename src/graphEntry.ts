@@ -387,9 +387,26 @@ export default class GraphEntry {
       const res: EntityCachePoints = this._dataBucketer(history, moment.range(startHistory, end)).map((bucket) => {
         return [bucket.timestamp, this._func(bucket.data)];
       });
-      if ([undefined, 'line', 'area'].includes(this._config.type)) {
+      
+      // For stacked columns in statistics mode, ensure nulls are converted to zeros
+      // This is crucial for proper stacking when using statistics
+      const isStackedColumn = 
+        this._config.type === 'column' && 
+        this._config.stack_group !== undefined && 
+        this._config.stack_group !== '';
+      
+      if (isStackedColumn && this._config.statistics) {
+        // Replace null values with zeros for proper stacking
+        for (let i = 0; i < res.length; i++) {
+          if (res[i][1] === null) {
+            res[i][1] = 0;
+          }
+        }
+      } else if ([undefined, 'line', 'area'].includes(this._config.type)) {
+        // For non-stacked column charts, we can remove leading nulls
         while (res.length > 0 && res[0][1] === null) res.shift();
       }
+      
       this._computedHistory = res;
     } else {
       this._computedHistory = history.data;
@@ -615,6 +632,45 @@ export default class GraphEntry {
           
           // Replace the original buckets with our normalized version
           buckets = modifiedBuckets;
+        }
+      }
+      
+      // The critical fix: Ensure all values are filled with zeros when there should be data
+      // This ensures the columns will stack properly and have the correct z-index
+      if (this._config.statistics) {
+        // Get data range for all series in statistics mode
+        const startBucket = buckets.reduce((min, bucket) => {
+          if (bucket.data.length > 0 && (min === null || bucket.data[0][0] < min)) {
+            return bucket.data[0][0];
+          }
+          return min;
+        }, null as number | null);
+        
+        const endBucket = buckets.reduce((max, bucket) => {
+          if (bucket.data.length > 0 && (max === null || bucket.data[0][0] > max)) {
+            return bucket.data[0][0];
+          }
+          return max;
+        }, null as number | null);
+        
+        // Only proceed if we have valid start and end times
+        if (startBucket !== null && endBucket !== null) {
+          // Make sure every timestamp in the range has a data point
+          // This is crucial for proper z-index ordering in stacked columns
+          for (let i = 0; i < buckets.length; i++) {
+            const bucket = buckets[i];
+            if (bucket.timestamp > startBucket && bucket.timestamp <= endBucket && bucket.data.length === 0) {
+              bucket.data = [[bucket.timestamp, 0]];
+            }
+          }
+          
+          // Ensure buckets with data are maintained in chronological order
+          buckets.sort((a, b) => {
+            if (a.data.length === 0 && b.data.length === 0) return 0;
+            if (a.data.length === 0) return 1;
+            if (b.data.length === 0) return -1;
+            return a.data[0][0] - b.data[0][0];
+          });
         }
       }
     }
