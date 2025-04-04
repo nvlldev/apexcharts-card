@@ -281,7 +281,21 @@ export default class GraphEntry {
 
             let displayDate: Date | null = null;
             const startDate = new Date(item.start);
-            if (!this._config.statistics?.align || this._config.statistics?.align === 'middle') {
+            
+            // Special handling for stacked columns with week/month periods
+            const isStackedColumn = 
+              this._config.type === 'column' && 
+              this._config.stack_group !== undefined && 
+              this._config.stack_group !== '';
+              
+            if (isStackedColumn && (this._config.statistics?.period === 'week' || this._config.statistics?.period === 'month')) {
+              // For stacked columns with week/month periods, we need to use consistent timestamps
+              // to ensure proper z-index rendering across all series
+              const normalizedDate = new Date(startDate);
+              normalizedDate.setUTCHours(12, 0, 0, 0); // Use consistent noon time for all series
+              displayDate = normalizedDate;
+            } else if (!this._config.statistics?.align || this._config.statistics?.align === 'middle') {
+              // Standard middle alignment for non-stacked columns
               if (this._config.statistics?.period === '5minute') {
                 displayDate = new Date(startDate.getTime() + 150000); // 2min30s
               } else if (!this._config.statistics?.period || this._config.statistics.period === 'hour') {
@@ -300,11 +314,6 @@ export default class GraphEntry {
             }
 
             // For stacked column charts, ensure null values become 0 to ensure proper stacking
-            const isStackedColumn = 
-              this._config.type === 'column' && 
-              this._config.stack_group !== undefined && 
-              this._config.stack_group !== '';
-              
             if (isStackedColumn && stateParsed === null) {
               stateParsed = 0;
             }
@@ -515,7 +524,40 @@ export default class GraphEntry {
       period,
     });
     if (statistics && this._entityID in statistics) {
-      return statistics[this._entityID];
+      const result = statistics[this._entityID];
+      
+      // Special handling for week/month periods with stacked columns
+      // This is critical to ensure proper stacking order across all series
+      const isStackedColumn = 
+        this._config.type === 'column' && 
+        this._config.stack_group !== undefined && 
+        this._config.stack_group !== '';
+        
+      if (isStackedColumn && result && (period === 'week' || period === 'month')) {
+        // Make sure we have consistent timeline points by ensuring start/end timestamps
+        // are predictable and consistent across all series
+        if (result.length > 0) {
+          // Normalize all timestamps to ensure consistent stacking
+          // This is essential for longer periods (week/month) where inconsistent
+          // timestamps can lead to z-index rendering issues
+          for (const item of result) {
+            // Convert all timestamps to exact UTC day boundaries
+            // This ensures consistency across all series
+            const day = new Date(item.start);
+            day.setUTCHours(0, 0, 0, 0);
+            item.start = day.toISOString();
+            
+            // Also ensure consistent end times for proper stacking
+            if (item.end) {
+              const endDay = new Date(item.end);
+              endDay.setUTCHours(23, 59, 59, 999);
+              item.end = endDay.toISOString();
+            }
+          }
+        }
+      }
+      
+      return result;
     }
     return undefined;
   }
