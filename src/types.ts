@@ -65,6 +65,7 @@ export interface StatisticValue {
   sum: number | null;
   state: number | null;
   change: number | null;
+  start_normalized?: string; // Added to help with timestamp normalization
 }
 
 export type HassHistory = Array<[HassHistoryEntry] | undefined>;

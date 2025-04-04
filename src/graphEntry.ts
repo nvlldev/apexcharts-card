@@ -271,55 +271,115 @@ export default class GraphEntry {
           if (history && history.data && history.data.length > 0) {
             lastNonNull = history.data[history.data.length - 1][1];
           }
-          newStateHistory = newHistory.map((item) => {
-            let stateParsed: number | null = null;
-            [lastNonNull, stateParsed] = this._transformAndFill(
-              item[this._config.statistics?.type || DEFAULT_STATISTICS_TYPE],
-              item,
-              lastNonNull,
-            );
-
-            let displayDate: Date | null = null;
-            const startDate = new Date(item.start);
+          // For stacked columns with statistics, we need to ensure consistent 
+          // timestamps and data ordering for proper stacking
+          const isStackedColumn = 
+            this._config.type === 'column' && 
+            this._config.stack_group !== undefined && 
+            this._config.stack_group !== '';
+          const isWeekOrMonth = 
+            this._config.statistics?.period === 'week' || 
+            this._config.statistics?.period === 'month';
             
-            // Special handling for stacked columns with week/month periods
-            const isStackedColumn = 
-              this._config.type === 'column' && 
-              this._config.stack_group !== undefined && 
-              this._config.stack_group !== '';
+          if (isStackedColumn && isWeekOrMonth) {
+            // For week/month periods with stacked columns, use the normalized timestamps we created
+            newStateHistory = newHistory.map((item) => {
+              let stateParsed: number | null = null;
               
-            if (isStackedColumn && (this._config.statistics?.period === 'week' || this._config.statistics?.period === 'month')) {
-              // For stacked columns with week/month periods, we need to use consistent timestamps
-              // to ensure proper z-index rendering across all series
-              const normalizedDate = new Date(startDate);
-              normalizedDate.setUTCHours(12, 0, 0, 0); // Use consistent noon time for all series
-              displayDate = normalizedDate;
-            } else if (!this._config.statistics?.align || this._config.statistics?.align === 'middle') {
-              // Standard middle alignment for non-stacked columns
-              if (this._config.statistics?.period === '5minute') {
-                displayDate = new Date(startDate.getTime() + 150000); // 2min30s
-              } else if (!this._config.statistics?.period || this._config.statistics.period === 'hour') {
-                displayDate = new Date(startDate.getTime() + 1800000); // 30min
-              } else if (this._config.statistics.period === 'day') {
-                displayDate = new Date(startDate.getTime() + 43200000); // 12h
-              } else if (this._config.statistics.period === 'week') {
-                displayDate = new Date(startDate.getTime() + 259200000); // 3.5d
-              } else {
-                displayDate = new Date(startDate.getTime() + 1296000000); // 15d
+              // First calculate the value
+              [lastNonNull, stateParsed] = this._transformAndFill(
+                item[this._config.statistics?.type || DEFAULT_STATISTICS_TYPE],
+                item,
+                lastNonNull,
+              );
+              
+              // Always ensure non-null values for proper stacking
+              if (stateParsed === null) {
+                stateParsed = 0;
               }
-            } else if (this._config.statistics.align === 'start') {
-              displayDate = new Date(item.start);
-            } else {
-              displayDate = new Date(item.end);
+              
+              // Use the normalized timestamp for consistent z-index ordering
+              let timestamp: number;
+              if (item.start_normalized) {
+                timestamp = new Date(item.start_normalized).getTime();
+              } else {
+                // Fallback if normalization didn't happen
+                const date = new Date(item.start);
+                date.setUTCHours(12, 0, 0, 0);
+                timestamp = date.getTime();
+              }
+              
+              return [timestamp, stateParsed];
+            });
+            
+            // Ensure all series have entries for all timestamps
+            // This is crucial for proper stacking in statistics mode
+            if (newStateHistory.length > 0) {
+              // Create a set of all unique timestamps
+              const allTimestamps = new Set<number>();
+              newStateHistory.forEach(point => {
+                if (point[0]) allTimestamps.add(point[0]);
+              });
+              
+              // Sort timestamps
+              const sortedTimestamps = Array.from(allTimestamps).sort();
+              
+              // Create a complete dataset with all timestamps
+              const completeDataset: EntityCachePoints = [];
+              sortedTimestamps.forEach(timestamp => {
+                // Look for existing point with this timestamp
+                const existingPoint = newStateHistory.find(point => point[0] === timestamp);
+                if (existingPoint) {
+                  completeDataset.push(existingPoint);
+                } else {
+                  // Add a zero entry for this timestamp
+                  completeDataset.push([timestamp, 0]);
+                }
+              });
+              
+              // Replace with the complete dataset
+              newStateHistory = completeDataset;
             }
+          } else {
+            // Standard handling for other types of statistics
+            newStateHistory = newHistory.map((item) => {
+              let stateParsed: number | null = null;
+              [lastNonNull, stateParsed] = this._transformAndFill(
+                item[this._config.statistics?.type || DEFAULT_STATISTICS_TYPE],
+                item,
+                lastNonNull,
+              );
 
-            // For stacked column charts, ensure null values become 0 to ensure proper stacking
-            if (isStackedColumn && stateParsed === null) {
-              stateParsed = 0;
-            }
+              let displayDate: Date | null = null;
+              const startDate = new Date(item.start);
+              
+              if (!this._config.statistics?.align || this._config.statistics?.align === 'middle') {
+                // Standard middle alignment
+                if (this._config.statistics?.period === '5minute') {
+                  displayDate = new Date(startDate.getTime() + 150000); // 2min30s
+                } else if (!this._config.statistics?.period || this._config.statistics.period === 'hour') {
+                  displayDate = new Date(startDate.getTime() + 1800000); // 30min
+                } else if (this._config.statistics.period === 'day') {
+                  displayDate = new Date(startDate.getTime() + 43200000); // 12h
+                } else if (this._config.statistics.period === 'week') {
+                  displayDate = new Date(startDate.getTime() + 259200000); // 3.5d
+                } else {
+                  displayDate = new Date(startDate.getTime() + 1296000000); // 15d
+                }
+              } else if (this._config.statistics.align === 'start') {
+                displayDate = new Date(item.start);
+              } else {
+                displayDate = new Date(item.end);
+              }
 
-            return [displayDate.getTime(), !Number.isNaN(stateParsed) ? stateParsed : null];
-          });
+              // For stacked column charts, ensure null values become 0 for proper stacking
+              if (isStackedColumn && stateParsed === null) {
+                stateParsed = 0;
+              }
+
+              return [displayDate.getTime(), !Number.isNaN(stateParsed) ? stateParsed : null];
+            });
+          }
         }
       } else {
         const newHistory = await this._fetchRecent(
@@ -526,33 +586,34 @@ export default class GraphEntry {
     if (statistics && this._entityID in statistics) {
       const result = statistics[this._entityID];
       
-      // Special handling for week/month periods with stacked columns
-      // This is critical to ensure proper stacking order across all series
+      // Special handling for all statistics in stacked columns
       const isStackedColumn = 
         this._config.type === 'column' && 
         this._config.stack_group !== undefined && 
         this._config.stack_group !== '';
         
-      if (isStackedColumn && result && (period === 'week' || period === 'month')) {
-        // Make sure we have consistent timeline points by ensuring start/end timestamps
-        // are predictable and consistent across all series
-        if (result.length > 0) {
-          // Normalize all timestamps to ensure consistent stacking
-          // This is essential for longer periods (week/month) where inconsistent
-          // timestamps can lead to z-index rendering issues
+      // For all statistics in stacked columns, ensure consistent data handling
+      if (isStackedColumn && result && result.length > 0) {
+        // For weekly/monthly statistics, do special timestamp normalization
+        if (period === 'week' || period === 'month') {
+          // Weekly/monthly data needs standardized UTC timestamps for proper z-index ordering
+          // For week/month periods, normalize timestamps to exact UTC noon time
+          // This ensures perfect alignment across series regardless of timezone
           for (const item of result) {
-            // Convert all timestamps to exact UTC day boundaries
-            // This ensures consistency across all series
-            const day = new Date(item.start);
-            day.setUTCHours(0, 0, 0, 0);
-            item.start = day.toISOString();
+            // Create standardized timestamps at noon UTC
+            const standardTime = new Date(item.start);
+            standardTime.setUTCHours(12, 0, 0, 0);
             
-            // Also ensure consistent end times for proper stacking
-            if (item.end) {
-              const endDay = new Date(item.end);
-              endDay.setUTCHours(23, 59, 59, 999);
-              item.end = endDay.toISOString();
-            }
+            // Store both normalized and original timestamps
+            // We'll use the normalized ones for rendering to ensure consistency
+            item.start_normalized = standardTime.toISOString();
+          }
+        } else {
+          // For other periods, still do some basic timestamp normalization
+          // to ensure consistent data points
+          for (const item of result) {
+            // Store original timestamp first
+            item.start_normalized = item.start;
           }
         }
       }
