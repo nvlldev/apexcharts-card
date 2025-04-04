@@ -646,34 +646,88 @@ export default class GraphEntry {
       // we need to explicitly add data points with value 0 for all possible timestamps
       // This is crucial for proper stacking of columns
       if (buckets.length > 0) {
-        // Collect a sorted list of all timestamps that should be considered
-        const allBucketTimestamps: number[] = buckets
-          .filter(bucket => bucket.data.length > 0)
-          .map(bucket => bucket.data[0][0])
-          .sort((a, b) => a - b);
-        
-        // Ensure we have exactly these timestamps in our data
-        // This is critical for statistics mode where different series might have different timestamp sets
-        if (allBucketTimestamps.length > 0) {
-          // We need to make a copy because we'll be modifying the buckets array
-          const modifiedBuckets: HistoryBuckets = [];
+        // Special handling for week/month statistics which need more aggressive timestamp normalization
+        if (this._config.statistics?.period === 'week' || this._config.statistics?.period === 'month') {
+          // For week/month periods, we need precise timestamp normalization
+          // to prevent columns from showing in front of each other
           
-          // Add a data point (with value 0) for each timestamp
-          for (const timestamp of allBucketTimestamps) {
-            const existingBucket = buckets.find(b => b.data.length > 0 && b.data[0][0] === timestamp);
-            if (existingBucket) {
-              modifiedBuckets.push(existingBucket);
+          // 1. Collect all non-normalized timestamps
+          const rawTimestamps = buckets
+            .filter(bucket => bucket.data.length > 0)
+            .map(bucket => bucket.data[0][0]);
+            
+          // 2. Create normalized timestamps that are exactly the same across series
+          // This is critical to ensure proper stacking order
+          const normalizedTimestamps: number[] = [];
+          rawTimestamps.forEach(timestamp => {
+            // Standardize to noon UTC
+            const normalizedDate = new Date(timestamp);
+            normalizedDate.setUTCHours(12, 0, 0, 0);
+            normalizedTimestamps.push(normalizedDate.getTime());
+          });
+          
+          // 3. Create new buckets with normalized timestamps
+          const normalizedBuckets: HistoryBuckets = [];
+          for (const timestamp of Array.from(new Set(normalizedTimestamps)).sort()) {
+            // Find the closest matching bucket
+            const matchingBucket = buckets.find(bucket => {
+              if (bucket.data.length === 0) return false;
+              
+              // Match within 24 hours to handle slight time differences
+              return Math.abs(bucket.data[0][0] - timestamp) < 86400000;
+            });
+            
+            if (matchingBucket) {
+              // Create a new bucket with the normalized timestamp but original value
+              const newValue = matchingBucket.data[0][1];
+              normalizedBuckets.push({
+                timestamp: matchingBucket.timestamp,
+                data: [[timestamp, newValue]]
+              });
             } else {
-              // If we don't already have this timestamp, add a zero-value data point
-              modifiedBuckets.push({
+              // Create a zero entry for this timestamp
+              normalizedBuckets.push({
                 timestamp: timestamp,
                 data: [[timestamp, 0]]
               });
             }
           }
           
-          // Replace the original buckets with our normalized version
-          buckets = modifiedBuckets;
+          // Replace with normalized buckets to ensure proper stacking
+          if (normalizedBuckets.length > 0) {
+            buckets = normalizedBuckets;
+          }
+        } else {
+          // For other periods, use the original approach
+          // Collect a sorted list of all timestamps that should be considered
+          const allBucketTimestamps: number[] = buckets
+            .filter(bucket => bucket.data.length > 0)
+            .map(bucket => bucket.data[0][0])
+            .sort((a, b) => a - b);
+          
+          // Ensure we have exactly these timestamps in our data
+          // This is critical for statistics mode where different series might have different timestamp sets
+          if (allBucketTimestamps.length > 0) {
+            // We need to make a copy because we'll be modifying the buckets array
+            const modifiedBuckets: HistoryBuckets = [];
+            
+            // Add a data point (with value 0) for each timestamp
+            for (const timestamp of allBucketTimestamps) {
+              const existingBucket = buckets.find(b => b.data.length > 0 && b.data[0][0] === timestamp);
+              if (existingBucket) {
+                modifiedBuckets.push(existingBucket);
+              } else {
+                // If we don't already have this timestamp, add a zero-value data point
+                modifiedBuckets.push({
+                  timestamp: timestamp,
+                  data: [[timestamp, 0]]
+                });
+              }
+            }
+            
+            // Replace the original buckets with our normalized version
+            buckets = modifiedBuckets;
+          }
         }
       }
       
