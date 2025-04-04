@@ -33,6 +33,7 @@ export function getLayoutConfig(
         'en',
       type: config.chart_type || DEFAULT_SERIE_TYPE,
       stacked: config?.stacked,
+      stackType: 'normal',
       foreColor: 'var(--primary-text-color)',
       width: '100%',
       zoom: {
@@ -67,6 +68,7 @@ export function getLayoutConfig(
       formatter: getDataLabelsFormatter(config, graphs, hass),
     },
     plotOptions: {
+      bar: getPlotOptions_bar(config),
       radialBar: getPlotOptions_radialBar(config, hass),
     },
     legend: {
@@ -123,6 +125,7 @@ export function getBrushLayoutConfig(
         'en',
       type: config.chart_type || DEFAULT_SERIE_TYPE,
       stacked: config?.stacked,
+      stackType: 'normal',
       foreColor: 'var(--primary-text-color)',
       width: '100%',
       height: '120px',
@@ -160,6 +163,9 @@ export function getBrushLayoutConfig(
     legend: {
       show: false,
     },
+    plotOptions: {
+      bar: getPlotOptions_bar(config),
+    },
     stroke: {
       curve: getStrokeCurve(config, true),
       lineCap: config.chart_type === 'radialBar' ? 'round' : 'butt',
@@ -186,14 +192,32 @@ function getFillOpacity(config: ChartCardConfig, brush: boolean): number[] {
 }
 
 function getSeries(config: ChartCardConfig, hass: HomeAssistant | undefined, brush: boolean) {
-  const series = brush ? config.series_in_brush : config.series_in_graph;
+  let series = brush ? config.series_in_brush : config.series_in_graph;
+  
+  // Special handling for stacked columns with statistics
+  // The order of series in the array determines the z-index stacking order
+  // We need to ensure consistent stacking order - especially for week/month statistics
+  if (config.stacked && series.some(serie => serie.type === 'column' && serie.statistics)) {
+    // Reverse the series array to ensure consistent z-index stacking order
+    // ApexCharts renders the last series on top, so this puts series at the beginning of the array on top
+    series = [...series].reverse();
+  }
+  
   if (TIMESERIES_TYPES.includes(config.chart_type)) {
     return series.map((serie, index) => {
+      // Get the original index from the config to maintain proper naming
+      const originalIndex = series === config.series_in_graph ? 
+        config.series_in_graph.findIndex(s => s.entity === serie.entity) : 
+        config.series_in_brush.findIndex(s => s.entity === serie.entity);
+      
       return {
-        name: computeName(index, series, undefined, hass?.states[serie.entity]),
+        name: computeName(originalIndex, brush ? config.series_in_brush : config.series_in_graph, 
+                         undefined, hass?.states[serie.entity]),
         group: config.stacked && serie.type === 'column' ? serie.stack_group : undefined,
         type: serie.type,
         data: [],
+        // Set z-index for stacked columns with statistics to ensure proper ordering
+        zIndex: config.stacked && serie.type === 'column' && serie.statistics ? index : undefined,
       };
     });
   } else {
@@ -357,6 +381,26 @@ function getDataLabelsFormatter(
     }
     return myFormatNumber(lValue, lHass?.locale, conf.series_in_graph[opts.seriesIndex].float_precision);
   };
+}
+
+function getPlotOptions_bar(config: ChartCardConfig) {
+  // This function handles special options for bars (columns)
+  if (config.stacked && config.series_in_graph.some(serie => serie.type === 'column' && serie.statistics)) {
+    return {
+      columnWidth: '99%',  // Make columns take up maximum space
+      // Crucial for proper z-index ordering in stacked columns
+      distributed: false,
+      // Force consistent z-index ordering for stacked columns
+      // Higher indexes will appear on top
+      dataLabels: {
+        position: 'top',
+      }
+    };
+  } else {
+    return {
+      columnWidth: '70%',
+    };
+  }
 }
 
 function getPlotOptions_radialBar(config: ChartCardConfig, hass: HomeAssistant | undefined) {
