@@ -87,7 +87,7 @@ import { OverrideFrontendLocaleData } from './types-ha';
 
 /* eslint no-console: 0 */
 console.info(
-  `%c APEXCHARTS-CARD %c v${pjson.version} `,
+  `%c APEXCHARTS-CARD-REVIVED %c v${pjson.version} `,
   'color: orange; font-weight: bold; background: black',
   'color: white; font-weight: bold; background: dimgray',
 );
@@ -96,10 +96,10 @@ console.info(
 (globalThis as any).ApexCharts = ApexCharts;
 
 localForage.config({
-  name: 'apexchart-card',
+  name: 'apexchart-card-revived',
   version: 1.0,
   storeName: 'entity_history_cache',
-  description: 'ApexCharts-card uses caching for the entity history',
+  description: 'ApexCharts-card-revived uses caching for the entity history',
 });
 
 localForage
@@ -118,7 +118,7 @@ localForage
     console.warn('Purging has errored: ', err);
   });
 
-@customElement('apexcharts-card')
+@customElement('apexcharts-card-revived')
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 class ChartsCard extends LitElement {
   private _hass?: HomeAssistant;
@@ -497,7 +497,7 @@ class ChartsCard extends LitElement {
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new Error(`/// apexcharts-card version ${pjson.version} /// ${e.message}`);
+      throw new Error(`/// apexcharts-card-revived version ${pjson.version} /// ${e.message}`);
     }
     // Full reset only happens in editor mode
     this._reset();
@@ -1669,8 +1669,8 @@ return data.reverse();
 (window as any).customCards = (window as any).customCards || [];
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).customCards.push({
-  type: 'apexcharts-card',
-  name: 'ApexCharts Card',
+  type: 'apexcharts-card-revived',
+  name: 'ApexCharts Card Revived',
   preview: true,
   description: 'A graph card based on ApexCharts',
 });

@@ -55,6 +55,7 @@ export default [
       dir: './dist',
       format: 'es',
       sourcemap: dev ? true : false,
+      entryFileNames: 'apexcharts-card-revived.js',
       globals: {
         apexcharts: 'ApexCharts',
       },

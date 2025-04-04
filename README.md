@@ -1,16 +1,12 @@
-[![License](https://img.shields.io/github/license/RomRider/apexcharts-card.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/nvlldev/apexcharts-card-revived.svg)](LICENSE)
 [![HACS Supported](https://img.shields.io/badge/HACS-Supported-green.svg)](https://github.com/custom-components/hacs)
-![Downloads](https://img.shields.io/github/downloads/RomRider/apexcharts-card/total)
-![GitHub Activity](https://img.shields.io/github/commit-activity/y/RomRider/apexcharts-card.svg?label=commits)
-[![Stable](https://img.shields.io/github/release/RomRider/apexcharts-card.svg)](https://github.com/RomRider/apexcharts-card/releases/latest)
-[![Beta](https://img.shields.io/github/package-json/v/RomRider/apexcharts-card/dev?label=release%40dev)](https://github.com/RomRider/apexcharts-card/releases)
 [![Community Forum](https://img.shields.io/badge/community-forum-brightgreen.svg)](https://community.home-assistant.io/t/apexcharts-card-a-highly-customizable-graph-card/272877)
 
-# ApexCharts Card Revived by [@RomRider](https://github.com/RomRider)
-### Forked from [@RomRider](https://github.com/RomRider/apexcharts-card)
+# ApexCharts Card Revived
+### Forked from [@RomRider/apexcharts-card](https://github.com/RomRider/apexcharts-card)
  <!-- omit in toc -->
 
-![Header](https://github.com/RomRider/apexcharts-card/raw/master/docs/Header.png)
+![Header](docs/Header.png)
 
 This is higly customizable graph card for [Home-Assistant](https://www.home-assistant.io)'s Lovelace UI.<br/>
 
@@ -101,7 +97,7 @@ If you configure Lovelace via YAML, add a reference to `apexcharts-card.js` insi
 
 ```yaml
 resources:
-  - url: /local/apexcharts-card.js?v=2.1.2
+  - url: /local/apexcharts-card-revived.js?v=2.1.3
     type: module
 ```
 
@@ -109,7 +105,7 @@ Else, if you prefer the graphical editor, use the menu to add the resource:
 
 1. Make sure, advanced mode is enabled in your user profile (click on your user name to get there)
 2. Navigate to Configuration -> Lovelace Dashboards -> Resources Tab. Hit orange (+) icon
-3. Enter URL `/local/apexcharts-card.js` and select type "JavaScript Module".
+3. Enter URL `/local/apexcharts-card-revived.js` and select type "JavaScript Module".
 4. Restart Home Assistant.
 
 ## Data processing steps
@@ -131,7 +127,7 @@ The card stricly validates all the options available (but not for the `apex_conf
 
 | Name | Type | Default | Since | Description |
 | ---- | :--: | :-----: | :---: | ----------- |
-| :white_check_mark: `type` | string | | v1.0.0 | `custom:apexcharts-card` |
+| :white_check_mark: `type` | string | | v1.0.0 | `custom:apexcharts-card-revived` |
 | :white_check_mark: `series` | array | | v1.0.0 | See [series](#series-options) |
 | `config_templates` | array | | v1.6.0 | Define a configuration once and reuse it multiple times. See [config_templates](#configuration-templates) |
 | `color_list` | array | | v1.6.0 | Define the array of colors applied to the series. Will be overriden by each serie's color if defined. Usefull for `config_templates` mainly. |
@@ -229,7 +225,7 @@ The card stricly validates all the options available (but not for the `apex_conf
 
 Example:
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 series:
   - entity: sensor.indoor_temperature
     header_actions:
@@ -252,7 +248,7 @@ This will popup a dialog box before running the action.
 Example:
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 series:
   - entity: sensor.indoor_temperature
     header_actions:
@@ -369,14 +365,14 @@ span:
 Eg:
 * Display 24h from the start of the current day (00:00 -> 23:59)
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 24h
   span:
     start: day
   ```
 * Display 24h from the start of the previous day (00:00 -> 23:59, -1 day)
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 24h
   span:
     start: day
@@ -384,7 +380,7 @@ Eg:
   ```
 * Display 12h between 06:00 and 18:00 of the current day
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 12h
   span:
     start: day
@@ -392,7 +388,7 @@ Eg:
   ```
 * Display the last 7 days, the end of the graph is the end of the current day
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 7d
   span:
     end: day
@@ -417,7 +413,7 @@ And should return a `number`, a `float` or `null`.
 Some examples:
 * Convert `binary_sensor` to numbers (`1` is `on`, `0` is `off`)
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   update_delay: 3s
   update_interval: 1min
   series:
@@ -427,7 +423,7 @@ Some examples:
 
 * Scale a sensor:
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   update_delay: 3s
   update_interval: 1min
   series:
@@ -493,7 +489,7 @@ Let's take this example:
   ```
 * This is data in the future, but I want to display them so I need to build them myself using `data_generator`:
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 4d # I have 4 days worth of data in the future in the attributes
   span:
     start: hour # I want to display from the start of the current hours 4 days into the future
@@ -543,7 +539,7 @@ You can have as many y-axis as there are series defined in your configuration or
 * Simple example with one y-axis:
 
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   header:
     show: true
     title: Max Soft Bounds + Min Fixed Bound
@@ -569,7 +565,7 @@ You can have as many y-axis as there are series defined in your configuration or
   ![multi_y_axis](docs/multi_y_axis.png)
 
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 20min
   yaxis:
     - id: first # identification name of the first y-axis
@@ -606,7 +602,7 @@ Hundreds of options are available and it is not possible to describe them all he
 * :warning: Everything which is available through the default config of this card shouldn't be defined in `apex_config`. If you do, it might break.
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 series:
   - ...
 apex_config:
@@ -653,12 +649,12 @@ For code junkies, you'll find the default options I use in [`src/apex-layouts.ts
 - You can inherit multiple templates at once by making it an array. In this case, the templates will be merged together with the current configuration in the order they are defined. This happens recursively.
 
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   config_templates:
     - template1
     - template2
   # or
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   config_templates: template1
   ```
 
@@ -701,7 +697,7 @@ views:
 And then where you define your card, you can consume those templates, and/or overload it:
 
 ```yaml
-- type: custom:apexcharts-card
+- type: custom:apexcharts-card-revived
   config_templates: bandwidth_chart
   header:
     title: WAN Bandwidth
@@ -713,7 +709,7 @@ And then where you define your card, you can consume those templates, and/or ove
 
 In the end, this would produce the same result as but it's shorter and you can reuse that template elsewhere:
 ```yaml
-- type: custom:apexcharts-card
+- type: custom:apexcharts-card-revived
   graph_span: 24h
   header:
     title: WAN Bandwidth
@@ -737,7 +733,7 @@ This will allow you to apply some settings to all the series avoiding repetition
 
 Eg:
 ```yaml
-- type: custom:apexcharts-card
+- type: custom:apexcharts-card-revived
   graph_span: 24h
   all_series_config:
     stroke_width: 2
@@ -752,7 +748,7 @@ Eg:
 
 Generates the same result as repeating the configuration in each series:
 ```yaml
-- type: custom:apexcharts-card
+- type: custom:apexcharts-card-revived
   graph_span: 24h
   series:
     - entity: sensor.wan_download
@@ -804,7 +800,7 @@ Some notes:
 
 And this is how to use it:
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 experimental:
   color_threshold: true
 series:
@@ -836,7 +832,7 @@ This option is useful if you want to hide a serie from the chart by default when
 
 This is how to use it:
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 experimental:
   hidden_by_default: true
 series:
@@ -861,7 +857,7 @@ Things to know:
 
 Here is how to use it (this represents the chart above):
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 experimental:
   color_threshold: true
   brush: true # This is required
@@ -923,7 +919,7 @@ Not ordered by priority:
 ### Simple graph
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 series:
   - entity: sensor.temperature
 ```
@@ -933,7 +929,7 @@ series:
 ![multi-graph](docs/multi-graph.png)
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 graph_span: 6h
 header:
   show: false
@@ -957,7 +953,7 @@ series:
 ![aggregating_data](docs/aggregate_func.png)
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 graph_span: 1h
 header:
   show: false
@@ -1002,7 +998,7 @@ series:
 ### Compare data from today with yesterday
 
 ```yaml
-type: custom:apexcharts-card
+type: custom:apexcharts-card-revived
 graph_span: 1d
 span:
   start: day
@@ -1021,7 +1017,7 @@ series:
 * Change all lines thickness
 
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 1d
   all_series_config:
     stroke_width: 2
@@ -1033,7 +1029,7 @@ series:
 * Selective line thickness modification
 
   ```yaml
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
   graph_span: 1d
   series:
     - entity: sensor.temperature
@@ -1054,7 +1050,7 @@ filter:
       options:
         entity: this.entity_id
 card:
-  type: custom:apexcharts-card
+  type: custom:apexcharts-card-revived
 ```
 
 ### Change the height of the graph
